@@ -3,23 +3,33 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <time.h>
+#include <unistd.h>
 
 struct termios original_termios;
 
-void terminal_use_raw(void)
+// Make terminal send input characters immediately.
+//
+// Returns the character code designating EOF.
+cc_t terminal_use_raw(void)
 {
 	// save original settings
-	tcgetattr(0, &original_termios);
+	tcgetattr(STDIN_FILENO, &original_termios);
 
-	struct termios new = original_termios;
-	new.c_lflag &= ~ICANON; // disable buffered I/O
-	new.c_lflag &= ~ECHO; // disable echo
-	tcsetattr(0, TCSANOW, &new);
+	struct termios raw = original_termios;
+
+	// disable buffered I/O and echo
+	raw.c_lflag &= ~(ICANON | ECHO);
+	// one byte at a time, no timer
+	raw.c_cc[VMIN] = 1;
+	raw.c_cc[VTIME] = 0;
+
+	tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+	return raw.c_cc[VEOF];
 }
 
 void terminal_reset(void)
 {
-	tcsetattr(0, TCSANOW, &original_termios);
+	tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
 }
 
 uint64_t us_timestamp(void)
@@ -35,16 +45,17 @@ uint64_t us_timestamp(void)
 
 int main()
 {
-	int c;
+	char c;
 	uint64_t s, s_prev = us_timestamp();
+	cc_t RAW_EOF;
 
-	terminal_use_raw();
+	RAW_EOF = terminal_use_raw();
 	atexit(terminal_reset);
 
-	while ((c = getchar()) != EOF)
+	while (read(STDIN_FILENO, &c, 1) == 1 && c != RAW_EOF)
 	{
 		s = us_timestamp();
-		printf("%" PRIu64 "\t\t%c\n", s-s_prev, c);
+		printf("%" PRIu64 "\t\t0x%x\n", s-s_prev, c);
 		s_prev = s;
 	}
 
