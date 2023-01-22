@@ -55,7 +55,7 @@ int main()
 	while (read(STDIN_FILENO, &c, 1) == 1 && c != RAW_EOF)
 	{
 		s = us_timestamp();
-		printf("%" PRIu64 "\t\t0x%x\n", s-s_prev, c);
+		printf("%" PRIu64 "\t\t0x%x\r\n", s-s_prev, c);
 		s_prev = s;
 	}
 
